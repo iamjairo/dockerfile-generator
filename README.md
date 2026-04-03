@@ -1,62 +1,110 @@
-# 🚀 Dockerfile Generator with Streamlit & Cohere
+# 🚀 Dockerfile Generator
 
-Generate optimized Dockerfiles for your preferred programming language using AI!  
-This app leverages [Cohere's AI API](https://cohere.com/) and a modern Streamlit UI to create Dockerfiles tailored to your stack—instantly.
+Generate production-ready **Dockerfiles** and **docker-compose.yml** files for any project — from a GitHub repository URL or a language / framework name — powered by AI.
 
 ---
 
 ## ✨ Features
 
-- **AI-powered**: Generates best-practice Dockerfiles for any programming language.
-- **Modern UI**: Built with [Streamlit](https://streamlit.io/) for a smooth, responsive user experience.
-- **Customizable**: Easily adapt prompts or add more features.
-- **Free to deploy**: Host on [Streamlit Community Cloud](https://streamlit.io/cloud) or run locally.
+- **GitHub repo analysis** — paste a public GitHub URL (`https://github.com/owner/repo` or `owner/repo`) and the app shallow-clones it, detects the language, framework, build tool, runtime versions, and exposed ports, then generates tailored Docker files.
+- **Language / framework input** — the classic mode: type a language or framework name and get instant results.
+- **Dual output** — generates both a `Dockerfile` (multi-stage, non-root, HEALTHCHECK, pinned base image) and a `docker-compose.yml` with download buttons for each.
+- **Multi-AI provider support** — use whichever AI you have an account with; the sidebar only shows providers whose API key is configured.
+- **Bridge & Macvlan network support** — choose your Docker network type in the sidebar; the generated `docker-compose.yml` follows the exact [homelab-alpha](https://homelab-alpha.nl) network conventions.
+- **homelab-alpha templates** — base templates for both Dockerfile and docker-compose are baked in as structural starting points for the AI.
 
 ---
 
 ## 🌐 Live App
 
-Check out the deployed Dockerfile Generator here:  
 [https://dockerfile-generator.streamlit.app/](https://dockerfile-generator.streamlit.app/)
 
 ---
 
-## 🖥️ Demo
+## 🤖 Supported AI Providers
 
-![App Screenshot](https://github.com/its-me-Arijit/dockerfile-generator/raw/main/Screenshot%202025-06-21%20152523.png)
+| Provider | Env var | Model |
+|---|---|---|
+| **Cohere** | `COHERE_API_KEY` | command-r-plus |
+| **OpenAI** | `OPENAI_API_KEY` | gpt-4o (configurable via `OPENAI_MODEL`) |
+| **Google Gemini** | `GOOGLE_API_KEY` | gemini-1.5-pro |
+| **Anthropic Claude** | `ANTHROPIC_API_KEY` | claude-3-5-sonnet-latest |
+| **Ollama (local)** | *(none required)* | llama3 (configurable via `OLLAMA_MODEL`) |
 
-![App Screenshot](https://github.com/its-me-Arijit/dockerfile-generator/blob/main/Screenshot%202025-06-21%20152801.png)
+Only providers with a key set in `.env` are shown in the sidebar. Ollama is always shown (uses `http://localhost:11434`).
 
 ---
 
-## 📊 Flow Diagram
+## 🔀 Docker Network Types
 
-Here's a simple flow diagram showing how the application works:
+### Bridge (default)
+
+Containers share an isolated virtual network and reach the internet via NAT. Services are exposed through port mappings. Best for most containerised workloads.
+
+Convention: [homelab-alpha bridge network setup](https://homelab-alpha.nl/docker/network-info/bridge-network-setup/)
+
+```yaml
+networks:
+  myapp_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          ip_range: 172.20.0.0/24
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
+```
+
+### Macvlan
+
+Each container gets a real LAN IP and MAC address — directly reachable from other hosts on the network without port mapping. Best for homelab services (e.g. DNS, reverse proxies, home automation) that need to appear as physical devices.
+
+Convention: [homelab-alpha macvlan network setup](https://homelab-alpha.nl/docker/network-info/macvlan-network-setup/)
+
+```yaml
+networks:
+  myapp_net:
+    driver: macvlan
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          ip_range: 192.168.1.128/25
+          gateway: 192.168.1.1
+    driver_opts:
+      parent: eno1    # run `ip a` to find your NIC name
+      ipv6: "false"
+```
+
+> **Note:** The Docker host itself cannot reach macvlan containers by default. Create a macvlan shim interface on the host if host → container traffic is needed.
+
+---
+
+## 📊 Application Flow
 
 ```
 User (Browser)
     │
-    ▼
-Streamlit UI (`app.py`)
-    │
-    ▼
-Calls function in
-`generate_dockerfile.py`
-    │
-    ▼
-Dockerfile Generation Logic
-    │
-    ▼
-Returns Dockerfile string
-    │
-    ▼
-Streamlit UI displays Dockerfile
+    ├─ Tab: GitHub Repository URL ──► repo_analyzer.py (clone + analyse)
+    │                                         │
+    └─ Tab: Language / Framework              │
+                │                             │
+                └────────────────────────────►│
+                                         context dict
+                                              │
+                                    generate_dockerfile.py
+                                    ┌─────────┴──────────┐
+                               Dockerfile          docker-compose.yml
+                               (multi-stage,       (bridge or macvlan,
+                                non-root,           homelab-alpha
+                                HEALTHCHECK)        conventions)
+                                              │
+                                       ai_providers.py
+                                    ┌────────┼────────┐
+                                 Cohere  OpenAI  Gemini  Anthropic  Ollama
 ```
-
-- **User interacts** with the web app via Streamlit.
-- **Streamlit UI** takes user input and calls a function from the backend logic.
-- **Backend logic** (`generate_dockerfile.py`) generates the Dockerfile based on the input.
-- **Result** is displayed in the web UI for the user to copy and use.
 
 ---
 
@@ -65,8 +113,8 @@ Streamlit UI displays Dockerfile
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/iamjairo/dockerfile-generator.git
+cd dockerfile-generator
 ```
 
 ### 2. Install dependencies
@@ -75,49 +123,36 @@ cd your-repo-name
 pip install -r requirements.txt
 ```
 
-### 3. Get your Cohere API key
+### 3. Configure API keys
 
-- Sign up at [Cohere Dashboard](https://dashboard.cohere.com/) for a free API key.
-
-### 4. Set up environment variables
-
-Create a `.env` file in the project root:
-
-```
-COHERE_API_KEY=your_cohere_api_key_here
+```bash
+cp .env.example .env
+# Edit .env and add at least one AI provider key
 ```
 
-### 5. Run the app
+### 4. Run the app
 
 ```bash
 streamlit run app.py
 ```
 
-Open the provided `localhost` URL in your browser.
-
 ---
 
 ## 🛠️ Project Structure
 
-```txt
-.
-├── app.py                   # Streamlit UI
-├── generate_dockerfile.py   # Dockerfile generation logic (AI integration)
-├── requirements.txt         # Python dependencies
-├── .env.example             # Example environment variables
-├── README.md                # This file
-└── .github/
-    └── app-screenshot.png   # (Optional) App screenshot
 ```
-
----
-
-## 🧩 How It Works
-
-1. **User inputs a programming language** in the Streamlit web UI.
-2. **App sends a prompt** to Cohere's API to generate a Dockerfile.
-3. **AI responds** with an optimized Dockerfile tailored to the language.
-4. **User copies and uses** the Dockerfile for their project.
+.
+├── app.py                          # Streamlit UI
+├── generate_dockerfile.py          # AI prompt logic (Dockerfile + docker-compose)
+├── ai_providers.py                 # Multi-AI provider interface
+├── repo_analyzer.py                # GitHub repo cloning & analysis
+├── templates/
+│   ├── Dockerfile.template         # Base Dockerfile template (multi-stage)
+│   └── docker-compose.template.yml # Base docker-compose template (bridge + macvlan)
+├── requirements.txt                # Python dependencies
+├── .env.example                    # Example environment variables
+└── README.md                       # This file
+```
 
 ---
 
@@ -127,34 +162,14 @@ Open the provided `localhost` URL in your browser.
 
 1. Push your code to a public GitHub repo.
 2. Go to Streamlit Cloud and create a new app from your repo.
-3. Add your `COHERE_API_KEY` in the app’s Secrets.
-4. Click Deploy—done!
-
----
-
-## 📝 Example Prompt & Output
-
-**Prompt:**  
-> Generate an ideal Dockerfile for Java with best practices.
-
-**AI Output:**
-```Dockerfile
-# syntax=docker/dockerfile:1
-FROM openjdk:11-slim
-RUN apt-get update && apt-get install -y \
-    curl git unzip \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY . .
-CMD ["java", "-jar", "your-app.jar"]
-```
+3. Add your API key(s) in the app's **Secrets** (Settings → Secrets).
+4. Click Deploy — done!
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome!  
-- Open issues, suggest features, or submit PRs.
+Contributions welcome! Open issues, suggest features, or submit PRs.
 
 ---
 
@@ -162,7 +177,11 @@ Contributions welcome!
 
 - [Streamlit](https://streamlit.io/)
 - [Cohere](https://cohere.com/)
-- [Arijit Ghosh](https://github.com/its-me-arijit) (Project Author)
+- [OpenAI](https://openai.com/)
+- [Google Gemini](https://ai.google.dev/)
+- [Anthropic](https://anthropic.com/)
+- [Ollama](https://ollama.com/)
+- [homelab-alpha](https://homelab-alpha.nl) — Docker network conventions
 
 ---
 

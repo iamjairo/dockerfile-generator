@@ -39,7 +39,7 @@ st.write(
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Sidebar — AI provider selection
+# Sidebar — AI provider + network type selection
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -53,10 +53,49 @@ with st.sidebar:
         )
         st.stop()
 
-    provider = st.selectbox("AI Provider", providers, help="Only providers with a configured API key are listed.")
+    provider = st.selectbox(
+        "AI Provider",
+        providers,
+        help="Only providers with a configured API key are listed.",
+    )
+
+    st.markdown("---")
+
+    network_type = st.radio(
+        "Docker Network Type",
+        options=["bridge", "macvlan"],
+        index=0,
+        help=(
+            "**bridge** — Isolated virtual network; containers reach the internet via NAT. "
+            "Best for most containerised workloads.\n\n"
+            "**macvlan** — Containers appear as physical devices on your LAN with their own "
+            "MAC addresses. Best for homelab services that need a real LAN IP directly "
+            "reachable from other hosts."
+        ),
+    )
+
+    if network_type == "bridge":
+        st.info(
+            "🔀 **Bridge network**\n\n"
+            "Containers share an isolated virtual network. "
+            "Internet access via NAT. Services are exposed through port mappings.\n\n"
+            "Convention: [homelab-alpha bridge setup]"
+            "(https://homelab-alpha.nl/docker/network-info/bridge-network-setup/)"
+        )
+    else:
+        st.warning(
+            "🔌 **Macvlan network**\n\n"
+            "Each container gets a real LAN IP and MAC address — directly reachable "
+            "from other hosts without port mapping.\n\n"
+            "⚠️ Requires: knowing your host's physical NIC name (`ip a`). "
+            "The Docker host itself cannot reach macvlan containers by default.\n\n"
+            "Convention: [homelab-alpha macvlan setup]"
+            "(https://homelab-alpha.nl/docker/network-info/macvlan-network-setup/)"
+        )
+
     st.markdown("---")
     st.markdown(
-        "**Supported providers**\n"
+        "**Supported AI providers**\n"
         "- Cohere → `COHERE_API_KEY`\n"
         "- OpenAI → `OPENAI_API_KEY`\n"
         "- Gemini → `GOOGLE_API_KEY`\n"
@@ -144,7 +183,7 @@ active_context = repo_context or language_context
 if active_context is not None:
     label = active_context.get("framework") or active_context.get("language") or "project"
     st.markdown("---")
-    st.subheader(f"📦 Generated Docker Files — {label}")
+    st.subheader(f"📦 Generated Docker Files — {label}  `({network_type} network)`")
 
     with st.spinner(f"Generating Dockerfile using {provider}…"):
         try:
@@ -155,9 +194,9 @@ if active_context is not None:
             dockerfile_ok = False
             dockerfile_error = exc
 
-    with st.spinner(f"Generating docker-compose.yml using {provider}…"):
+    with st.spinner(f"Generating docker-compose.yml using {provider} [{network_type} network]…"):
         try:
-            compose_result = generate_docker_compose(active_context, provider)
+            compose_result = generate_docker_compose(active_context, provider, network_type)
             compose_ok = True
         except Exception as exc:
             compose_result = ""
@@ -200,6 +239,7 @@ if active_context is not None:
 st.markdown("---")
 st.markdown(
     "<small style='color: #888;'>Built with ❤️ for developers. "
-    "Supports Cohere · OpenAI · Google Gemini · Anthropic Claude · Ollama.</small>",
+    "Supports Cohere · OpenAI · Google Gemini · Anthropic Claude · Ollama. "
+    "Network conventions by <a href='https://homelab-alpha.nl' target='_blank'>homelab-alpha</a>.</small>",
     unsafe_allow_html=True,
 )
