@@ -1,0 +1,134 @@
+# =============================================================================
+# docker-compose.yml — Best-Practice Template
+# =============================================================================
+# Inspired by the homelab-alpha docker-compose conventions:
+#   https://raw.githubusercontent.com/homelab-alpha/shell-script/main/scripts/new_docker_compose_file.sh
+#
+# INSTRUCTIONS FOR AI:
+#   Replace every <PLACEHOLDER> with the correct value for the target project.
+#   Remove sections that do not apply and add service-specific blocks as needed.
+#   Keep the named network at the bottom.  Use named volumes instead of bind
+#   mounts for persistent data wherever possible.
+# =============================================================================
+
+name: <APP_NAME>
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # -------------------------------------------------------------------------
+  # Primary application service
+  # -------------------------------------------------------------------------
+  <SERVICE_NAME>:
+    image: <IMAGE_NAME>:<TAG>               # or use `build: .` to build locally
+    build:                                  # remove this block if using a pre-built image
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.0.0"
+    container_name: <CONTAINER_NAME>
+    restart: unless-stopped
+
+    # Environment variables — prefer a .env file for secrets
+    environment:
+      - APP_ENV=production
+      - PORT=<PORT>
+      # - SECRET_KEY=${SECRET_KEY}        # pulled from .env file
+    env_file:
+      - .env                              # remove if not used
+
+    ports:
+      - "<HOST_PORT>:<CONTAINER_PORT>"    # e.g. "8080:8080"
+
+    volumes:
+      - <SERVICE_NAME>_data:/app/data     # named volume for persistent data
+      # - ./config:/app/config:ro         # bind-mount for config (read-only)
+
+    networks:
+      - <NETWORK_NAME>
+
+    # Health check — adjust command, interval and thresholds to your app
+    healthcheck:
+      test: <HEALTHCHECK_COMMAND>         # e.g. ["CMD", "curl", "-f", "http://localhost:<PORT>/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Resource limits (optional but recommended for production)
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+    # Metadata labels
+    labels:
+      - "com.example.description=<DESCRIPTION>"
+      - "com.example.version=1.0.0"
+      - "com.example.maintainer=<MAINTAINER>"
+
+  # -------------------------------------------------------------------------
+  # (Optional) Database service — uncomment and adapt as needed
+  # -------------------------------------------------------------------------
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: <APP_NAME>-db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-appdb}
+  #     POSTGRES_USER: ${POSTGRES_USER:-appuser}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+  #   volumes:
+  #     - db_data:/var/lib/postgresql/data
+  #   networks:
+  #     - <NETWORK_NAME>
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # -------------------------------------------------------------------------
+  # (Optional) Cache / message broker — uncomment and adapt as needed
+  # -------------------------------------------------------------------------
+  # cache:
+  #   image: redis:7-alpine
+  #   container_name: <APP_NAME>-cache
+  #   restart: unless-stopped
+  #   volumes:
+  #     - cache_data:/data
+  #   networks:
+  #     - <NETWORK_NAME>
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# ---------------------------------------------------------------------------
+# Named volumes
+# ---------------------------------------------------------------------------
+volumes:
+  <SERVICE_NAME>_data:
+    driver: local
+  # db_data:
+  #   driver: local
+  # cache_data:
+  #   driver: local
+
+# ---------------------------------------------------------------------------
+# Named network (homelab-alpha convention — one explicit network per stack)
+# ---------------------------------------------------------------------------
+networks:
+  <NETWORK_NAME>:
+    name: <NETWORK_NAME>
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24           # adjust subnet to avoid conflicts

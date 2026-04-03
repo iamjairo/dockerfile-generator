@@ -1,0 +1,84 @@
+# =============================================================================
+# Dockerfile — Best-Practice Multi-Stage Template
+# =============================================================================
+# INSTRUCTIONS FOR AI:
+#   Replace every <PLACEHOLDER> with the correct value for the target project.
+#   Remove sections that do not apply and add language-specific steps as needed.
+#   Keep multi-stage builds wherever a build step exists to minimise the final
+#   image size.  Always target a non-root user in the runtime stage.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1 — Builder
+#   Install ALL build-time dependencies and compile / bundle the application.
+#   Nothing from this stage leaks into the runtime image except the artefacts
+#   copied explicitly with COPY --from=builder.
+# -----------------------------------------------------------------------------
+ARG <RUNTIME>_VERSION=<VERSION>
+
+FROM <BASE_BUILDER_IMAGE>:<TAG> AS builder
+
+# Build-time arguments (override with --build-arg at docker build time)
+ARG APP_VERSION=1.0.0
+ARG BUILD_ENV=production
+
+WORKDIR /build
+
+# Copy dependency manifests first so Docker can cache the install layer
+COPY <DEPENDENCY_FILES> ./
+
+# Install dependencies (language-specific — replace this block)
+RUN <INSTALL_DEPENDENCIES_COMMAND>
+
+# Copy remaining source code
+COPY . .
+
+# Compile / bundle (remove if not applicable)
+RUN <BUILD_COMMAND>
+
+# -----------------------------------------------------------------------------
+# Stage 2 — Runtime
+#   Minimal image containing only what the application needs to run.
+# -----------------------------------------------------------------------------
+FROM <BASE_RUNTIME_IMAGE>:<TAG> AS runtime
+
+# Metadata labels
+LABEL maintainer="<MAINTAINER>"
+LABEL org.opencontainers.image.title="<APP_NAME>"
+LABEL org.opencontainers.image.description="<DESCRIPTION>"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
+LABEL org.opencontainers.image.source="<REPO_URL>"
+
+# Environment variables
+ENV APP_ENV=production \
+    PORT=<PORT> \
+    <OTHER_ENV_VARS>
+
+WORKDIR /app
+
+# Copy compiled artefacts from the builder stage
+COPY --from=builder /build/<OUTPUT_DIR> .
+
+# Install only runtime system packages (keep the list minimal)
+RUN <INSTALL_RUNTIME_SYSTEM_PACKAGES> \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user and switch to it
+RUN groupadd --gid 1001 appgroup \
+    && useradd --uid 1001 --gid appgroup --shell /bin/sh --create-home appuser
+
+# Ensure the app directory is owned by the non-root user
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+# Expose the application port
+EXPOSE <PORT>
+
+# Health check — adjust path and interval to match your application
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD <HEALTHCHECK_COMMAND>
+
+# Use ENTRYPOINT for the fixed executable and CMD for overridable arguments
+ENTRYPOINT ["<ENTRYPOINT_EXECUTABLE>"]
+CMD ["<DEFAULT_ARGUMENT>"]
