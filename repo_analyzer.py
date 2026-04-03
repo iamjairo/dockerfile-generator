@@ -105,8 +105,8 @@ def _normalize_github_url(url: str) -> str:
     if url.startswith("gh:"):
         url = url[3:]
 
-    # owner/repo shorthand (bare)
-    if re.match(r"^[\w.\-]+/[\w.\-]+$", url):
+    # owner/repo shorthand (bare) — GitHub names: alphanumeric, hyphens, dots, underscores
+    if re.match(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$", url):
         return f"https://github.com/{url}.git"
 
     raise ValueError(
@@ -209,7 +209,7 @@ def _detect_ports(root: Path) -> list[int]:
                 for pattern in PORT_PATTERNS:
                     for match in re.finditer(pattern, text):
                         port = int(match.group(1))
-                        if 80 <= port <= 65535:
+                        if 1 <= port <= 65535:  # include all valid port numbers
                             found_ports.add(port)
             except OSError:
                 pass
@@ -224,7 +224,7 @@ def _detect_ports(root: Path) -> list[int]:
                 for pattern in PORT_PATTERNS:
                     for match in re.finditer(pattern, text):
                         port = int(match.group(1))
-                        if 80 <= port <= 65535:
+                        if 1 <= port <= 65535:  # include all valid port numbers
                             found_ports.add(port)
             except OSError:
                 pass
@@ -431,7 +431,9 @@ def analyze_repo(url_or_shorthand: str) -> dict:
 
     except subprocess.TimeoutExpired:
         context["error"] = "Repository clone timed out (120 s). Try again or use a smaller repo."
-    except Exception as exc:  # noqa: BLE001
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        context["error"] = f"Error during repository analysis: {exc}"
+    except Exception as exc:  # noqa: BLE001 — catch-all for truly unexpected errors
         context["error"] = f"Unexpected error during analysis: {exc}"
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

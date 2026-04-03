@@ -101,7 +101,7 @@ def _ollama_generate(prompt: str) -> str:
     except requests.exceptions.ConnectionError:
         raise ConnectionError(
             f"Cannot connect to Ollama at {base_url}. "
-            "Make sure Ollama is running locally (ollama serve)."
+            "Make sure the Ollama server is running and accessible."
         )
 
 
