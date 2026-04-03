@@ -1,0 +1,247 @@
+# =============================================================================
+# docker-compose.yml — Best-Practice Template
+# =============================================================================
+# Network conventions from:
+#   Bridge:  https://homelab-alpha.nl/docker/network-info/bridge-network-setup/
+#   Macvlan: https://homelab-alpha.nl/docker/network-info/macvlan-network-setup/
+#   Script:  https://raw.githubusercontent.com/homelab-alpha/shell-script/main/scripts/new_docker_compose_file.sh
+#
+# INSTRUCTIONS FOR AI:
+#   Replace every <PLACEHOLDER> with the correct value for the target project.
+#   Remove sections that do not apply and add service-specific blocks as needed.
+#   The network block at the bottom follows homelab-alpha conventions exactly.
+#   Choose EITHER the bridge OR the macvlan network section — not both.
+#   Use named volumes instead of bind mounts for persistent data wherever possible.
+# =============================================================================
+
+name: <APP_NAME>
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # -------------------------------------------------------------------------
+  # Primary application service
+  # -------------------------------------------------------------------------
+  <APP_NAME>_app:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: 512M
+    #     reservations:
+    #       cpus: "0.25"
+    #       memory: 128M
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+    #     window: 120s
+    restart: unless-stopped  # "no", always, unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1M"
+        max-file: "2"
+    stop_grace_period: 1m
+    container_name: <APP_NAME>
+    image: <IMAGE_NAME>:<TAG>               # or use `build: .` to build locally
+    build:                                  # remove this block if using a pre-built image
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.0.0"
+    init: false
+    pull_policy: if_not_present             # always, never, missing, if_not_present, build
+
+    # Environment variables — prefer a .env file for secrets
+    environment:
+      # Any boolean values: "true", "false", "yes", "no" should be enclosed in quotes.
+      PUID: "1000"                          # UserID
+      PGID: "1000"                          # GroupID
+      TZ: Europe/Amsterdam                  # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      APP_ENV: production
+      PORT: "<PORT>"
+      # SECRET_KEY: ${SECRET_KEY}           # pulled from .env file
+    env_file:
+      # Choose the correct environment file:
+      # - Use '.env' for Docker Compose.
+      # - Use 'stack.env' for Portainer.
+      - .env
+      # - stack.env
+
+    ports:
+      - target: <PORT>                      # container port
+        host_ip: 0.0.0.0                   # 0.0.0.0 = all interfaces; 127.0.0.1 = localhost only
+        published: <HOST_PORT>              # publicly exposed port
+        protocol: tcp                       # tcp or udp
+
+    volumes:
+      # rw: Read and write access. ro: Read-only access. z: multiple containers. Z: private and unshared
+      - /docker/<APP_NAME>/production/app:/app/data
+
+    domainname: <APP_NAME>.local
+    hostname: <APP_NAME>
+
+    networks:
+      <APP_NAME>_net:
+        ipv4_address: 172.20.0.2
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Health check — adjust command, interval and thresholds to your app
+    healthcheck:
+      disable: false
+      test: <HEALTHCHECK_COMMAND>           # e.g. ["CMD", "curl", "-f", "http://localhost:<PORT>/health"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s
+
+    # Metadata labels
+    labels:
+      com.docker.compose.project: "<APP_NAME>"
+      com.<APP_NAME>.description: "<DESCRIPTION>"
+
+  # -------------------------------------------------------------------------
+  # (Optional) Database service — uncomment and adapt as needed
+  # -------------------------------------------------------------------------
+  # <APP_NAME>_db:
+  #   restart: unless-stopped
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "1M"
+  #       max-file: "2"
+  #   stop_grace_period: 1m
+  #   container_name: <APP_NAME>_db
+  #   image: mariadb:lts  # or postgres:16-alpine
+  #   pull_policy: if_not_present
+  #   volumes:
+  #     - /docker/<APP_NAME>/production/db:/var/lib/mysql
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     PUID: "1000"
+  #     PGID: "1000"
+  #     TZ: Europe/Amsterdam
+  #     MARIADB_ROOT_PASSWORD: ${ROOT_PASSWORD_DB}
+  #     MARIADB_DATABASE: ${NAME_DB}
+  #     MARIADB_USER: ${USER_DB}
+  #     MARIADB_PASSWORD: ${PASSWORD_DB}
+  #   hostname: <APP_NAME>_db
+  #   networks:
+  #     <APP_NAME>_net:
+  #       ipv4_address: 172.20.0.3
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   labels:
+  #     com.<APP_NAME>.db.description: "is a MariaDB database."
+  #   healthcheck:
+  #     disable: false
+  #     test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 10s
+  #     start_interval: 5s
+
+  # -------------------------------------------------------------------------
+  # (Optional) Cache service — uncomment and adapt as needed
+  # -------------------------------------------------------------------------
+  # <APP_NAME>_redis:
+  #   restart: unless-stopped
+  #   container_name: <APP_NAME>_redis
+  #   image: redis:7-alpine
+  #   pull_policy: if_not_present
+  #   volumes:
+  #     - /docker/<APP_NAME>/production/redis:/data
+  #   networks:
+  #     <APP_NAME>_net:
+  #       ipv4_address: 172.20.0.4
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   healthcheck:
+  #     disable: false
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# ---------------------------------------------------------------------------
+# Named volumes (external: true means the volume must be created manually
+# before running docker compose up, e.g.: docker volume create <APP_NAME>_app)
+# ---------------------------------------------------------------------------
+volumes:
+  <APP_NAME>_app:
+    external: true
+  # <APP_NAME>_db:
+  #   external: true
+
+# ===========================================================================
+# NETWORK OPTION A — Bridge (default; use for most containerised workloads)
+# Source: https://homelab-alpha.nl/docker/network-info/bridge-network-setup/
+#
+# Containers share a virtual network and can reach the internet via NAT.
+# They are NOT directly visible as devices on the host LAN.
+# ===========================================================================
+networks:
+  <APP_NAME>_net:
+    attachable: false   # true = standalone containers can attach manually
+    internal: false     # true = no internet access (fully isolated)
+    external: false     # true = network is managed outside this Compose file
+    name: <APP_NAME>
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24   # Subnet in CIDR format
+          ip_range: 172.20.0.0/24 # Range from which container IPs are allocated
+          gateway: 172.20.0.1     # Gateway for the subnet
+          # aux_addresses:          # Reserve IPs for non-container hosts
+          #   host1: 172.20.0.2
+    driver_opts:
+      com.docker.network.bridge.default_bridge: "false"
+      com.docker.network.bridge.enable_icc: "true"          # inter-container communication
+      com.docker.network.bridge.enable_ip_masquerade: "true" # NAT / internet access
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+      com.docker.network.bridge.name: "<APP_NAME>"
+      com.docker.network.driver.mtu: "1500"
+    labels:
+      com.<APP_NAME>.network.description: "is an isolated bridge network."
+
+# ===========================================================================
+# NETWORK OPTION B — Macvlan (use when containers must appear as physical
+#                    devices on the host LAN with their own MAC addresses)
+# Source: https://homelab-alpha.nl/docker/network-info/macvlan-network-setup/
+#
+# Each container gets a real LAN IP, making it directly reachable from other
+# hosts on the network WITHOUT port-mapping.
+# NOTE: The `parent` interface (e.g. eno1 / eth0) must match the actual NIC
+#       on the Docker host. Find it with: ip a
+# NOTE: The host itself CANNOT reach macvlan containers by default.
+#       Create a macvlan interface on the host if host→container traffic is needed.
+# ===========================================================================
+# networks:
+#   <APP_NAME>_net:
+#     attachable: true    # Allow manual docker network connect
+#     internal: false     # Allow internet access
+#     external: false
+#     name: <APP_NAME>
+#     driver: macvlan
+#     ipam:
+#       driver: default
+#       config:
+#         - subnet: 192.168.1.0/24    # Must match your physical LAN subnet
+#           ip_range: 192.168.1.128/25 # Reserve upper half for containers
+#           gateway: 192.168.1.1       # Your LAN gateway / router IP
+#           aux_addresses:             # IPs Docker will NOT assign to containers
+#             host: 192.168.1.254      # e.g. reserve the Docker host IP
+#     driver_opts:
+#       parent: eno1                   # Physical NIC — change to match your host
+#       ipv6: "false"
+#     labels:
+#       com.<APP_NAME>.network.description: "is a non-isolated macvlan network."
