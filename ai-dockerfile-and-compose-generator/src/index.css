@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
+
+@layer base {
+    :root {
+        --background: 220 23% 98%;
+        --foreground: 223 32% 12%;
+        --card: 0 0% 100%;
+        --card-foreground: 223 32% 12%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 223 32% 12%;
+        --primary: 228 69% 54%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 220 20% 95%;
+        --secondary-foreground: 223 32% 12%;
+        --muted: 220 20% 95%;
+        --muted-foreground: 220 12% 40%;
+        --accent: 217 32% 92%;
+        --accent-foreground: 223 32% 12%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 220 18% 89%;
+        --input: 220 18% 89%;
+        --ring: 228 69% 54%;
+        --radius: 0.85rem;
+        --sidebar-background: 0 0% 98%;
+        --sidebar-foreground: 240 5.3% 26.1%;
+        --sidebar-primary: 240 5.9% 10%;
+        --sidebar-primary-foreground: 0 0% 98%;
+        --sidebar-accent: 240 4.8% 95.9%;
+        --sidebar-accent-foreground: 240 5.9% 10%;
+        --sidebar-border: 220 13% 91%;
+        --sidebar-ring: 217.2 91.2% 59.8%;
+        --brand: 228 69% 54%;
+        --brand-accent: 191 89% 48%;
+        --highlight: 264 83% 63%;
+    }
+
+    .dark {
+        --background: 224 27% 10%;
+        --foreground: 210 40% 98%;
+        --card: 224 24% 13%;
+        --card-foreground: 210 40% 98%;
+        --popover: 224 24% 13%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 213 94% 68%;
+        --primary-foreground: 224 27% 10%;
+        --secondary: 223 21% 18%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 223 21% 18%;
+        --muted-foreground: 216 15% 69%;
+        --accent: 223 21% 18%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 0 63% 43%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 223 18% 22%;
+        --input: 223 18% 22%;
+        --ring: 213 94% 68%;
+        --sidebar-background: 240 5.9% 10%;
+        --sidebar-foreground: 240 4.8% 95.9%;
+        --sidebar-primary: 224.3 76.3% 48%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 240 3.7% 15.9%;
+        --sidebar-accent-foreground: 240 4.8% 95.9%;
+        --sidebar-border: 240 3.7% 15.9%;
+        --sidebar-ring: 217.2 91.2% 59.8%;
+        --brand: 213 94% 68%;
+        --brand-accent: 186 90% 58%;
+        --highlight: 264 83% 71%;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        background-image: radial-gradient(circle at top left, hsl(var(--brand) / 0.08), transparent 28%),
+        radial-gradient(circle at top right, hsl(var(--highlight) / 0.08), transparent 26%);
+    }
+}
+
+@layer utilities {
+    .app-shell-grid {
+        @apply grid min-h-screen lg:grid-cols-[260px_1fr];
+    }
+
+    .panel-surface {
+        @apply border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm;
+    }
+
+    .animate-fade-in-safe {
+        animation: fade-in-safe 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .animate-slide-up-safe {
+        animation: slide-up-safe 0.6s ease-out forwards;
+        opacity: 0;
+    }
+
+    .animate-scale-in-safe {
+        animation: scale-in-safe 0.5s ease-out forwards;
+        opacity: 0;
+    }
+
+    .gradient-brand {
+        background: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-accent)) 100%);
+    }
+
+    .glass-card {
+        background: hsl(var(--card) / 0.72);
+        backdrop-filter: blur(14px);
+        border: 1px solid hsl(var(--border) / 0.6);
+    }
+
+    .text-gradient {
+        background-image: linear-gradient(135deg, hsl(var(--brand)), hsl(var(--brand-accent)));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+}
+
+@keyframes fade-in-safe {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-up-safe {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in-safe {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

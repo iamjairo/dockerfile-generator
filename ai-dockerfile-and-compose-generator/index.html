@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="public/favicon.svg" />
+
+    <!-- TODO: Set the document title to the name of your application/workspace -->
+    <title>CodePal App Workspace</title>
+    <meta content="CodePal product application starter with routed workspace UI." name="description"/>
+    <meta name="author" content="CodePal" />
+
+    <!-- TODO: Update og:title and og:description to match your product -->
+    <meta content="CodePal App Workspace" property="og:title"/>
+    <meta content="CodePal product application starter with routed workspace UI." property="og:description"/>
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://codepal.ai/static/images/codepal-og-image.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@CodePal" />
+    <meta name="twitter:image" content="https://codepal.ai/static/images/codepal-og-image.png" />
+
+    <!-- CodePal Analytics: lightweight, cookieless pageview tracking -->
+    <script>(function () {
+        try {
+            if (window.self !== window.top) return;
+            var h = location.hostname;
+            var pm = h.match(/^preview-([a-f0-9]{24})\./);
+            var pid = pm ? pm[1] : null;
+            var sm = !pm && h.match(/^([a-z0-9][a-z0-9-]+)\.(codepal\.site|staging\.codepal\.ai|dev\.codepal\.ai)$/);
+            var slug = sm ? sm[1] : null;
+            if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(h)) return;
+            var API = window._CP_ANALYTICS_API || "https://api.codepal.ai/v5/api/project/analytics-collect";
+
+            function hash(s) {
+                for (var h = 0, i = 0; i < s.length; i++) {
+                    h = ((h << 5) - h) + s.charCodeAt(i);
+                    h |= 0
+                }
+                return Math.abs(h).toString(36)
+            }
+
+            var vid = hash(screen.width + "" + screen.height + navigator.language + (navigator.userAgent || ""));
+            var sid = sessionStorage.getItem("_cp_sid");
+            if (!sid) {
+                sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+                sessionStorage.setItem("_cp_sid", sid)
+            }
+            var t0 = Date.now();
+            var sent = false;
+            var maxScroll = 0;
+
+            // Track max scroll depth
+            var scrollTimer;
+            window.addEventListener("scroll", function () {
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(function () {
+                    var winH = window.innerHeight;
+                    var docH = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+                    if (docH > winH) {
+                        var pct = Math.round(((window.scrollY + winH) / docH) * 100);
+                        if (pct > maxScroll) maxScroll = Math.min(100, pct);
+                    }
+                }, 100);
+            }, {passive: true});
+
+            // Page load timing
+            var loadTime = null;
+            window.addEventListener("load", function () {
+                try {
+                    var p = performance.timing;
+                    if (p && p.loadEventEnd > 0 && p.navigationStart > 0) {
+                        loadTime = p.loadEventEnd - p.navigationStart;
+                    } else if (performance.getEntriesByType) {
+                        var nav = performance.getEntriesByType("navigation")[0];
+                        if (nav) loadTime = Math.round(nav.loadEventEnd);
+                    }
+                } catch (e) {
+                }
+            });
+
+            function beacon(dur) {
+                var d = {
+                    session_id: sid,
+                    visitor_id: vid,
+                    page_path: location.pathname + location.search,
+                    referrer: document.referrer || "",
+                    screen_width: screen.width,
+                    screen_height: screen.height
+                };
+                if (pid) d.project_id = pid;
+                if (slug) d.app_slug = slug;
+                if (!pid && !slug) d.domain = h;
+                if (dur) {
+                    d.duration = dur;
+                    if (maxScroll > 0) d.scroll_depth = maxScroll;
+                }
+                if (loadTime && !dur) d.load_time = loadTime;
+                try {
+                    var payload = JSON.stringify(d);
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon(API, new Blob([payload], {type: 'text/plain;charset=UTF-8'}))
+                    } else {
+                        var x = new XMLHttpRequest();
+                        x.open("POST", API, true);
+                        x.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+                        x.send(payload)
+                    }
+                } catch (e) {
+                }
+            }
+
+            beacon();
+            document.addEventListener("visibilitychange", function () {
+                if (document.hidden && !sent) {
+                    sent = true;
+                    beacon(Math.round((Date.now() - t0) / 1000))
+                }
+            });
+            window.addEventListener("pagehide", function () {
+                if (!sent) {
+                    sent = true;
+                    beacon(Math.round((Date.now() - t0) / 1000))
+                }
+            })
+        } catch (e) {
+        }
+    })()</script>
+</head>
+
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
