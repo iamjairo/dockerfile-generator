@@ -1,0 +1,96 @@
+# =============================================================================
+# docker-compose.yml — iamjairo/dockerfile-generator (Streamlit app)
+# Networking convention: homelab-alpha bridge network setup
+# https://homelab-alpha.nl/docker/network-info/bridge-network-setup/
+# =============================================================================
+# Usage:
+#   1. Copy this file + the Dockerfile into your Python repo root
+#   2. cp .env.example .env  (and fill in at least one API key)
+#   3. docker compose up --build -d
+#   4. Open http://localhost:8501
+# =============================================================================
+
+name: dockerfile-generator
+
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dockerfile-generator:latest
+    container_name: dockerfile-generator-app
+    restart: unless-stopped
+    pull_policy: if_not_present
+    stop_grace_period: 1m
+    security_opt:
+      - no-new-privileges:true
+
+    # ── Environment ──────────────────────────────────────────────────────────
+    # Primary env file — copy .env.example to .env and fill in your keys
+    env_file:
+      - .env
+      # Uncomment for Portainer stacks compatibility:
+      # - stack.env
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+
+    # ── Ports ────────────────────────────────────────────────────────────────
+    ports:
+      - target: 8501
+        published: 8501
+        protocol: tcp
+        mode: host
+
+    # ── Health check ─────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+      start_interval: 5s
+
+    # ── Logging ──────────────────────────────────────────────────────────────
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "2"
+
+    # ── Labels ───────────────────────────────────────────────────────────────
+    labels:
+      com.dockerfile-generator.app.description: "AI-powered Dockerfile & docker-compose generator (Streamlit)."
+
+    # ── Network ──────────────────────────────────────────────────────────────
+    networks:
+      dockerfile_generator_net:
+        ipv4_address: 172.20.0.2
+
+# =============================================================================
+# Bridge network — homelab-alpha convention
+# =============================================================================
+networks:
+  dockerfile_generator_net:
+    attachable: false
+    internal: false
+    external: false
+    name: dockerfile-generator
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+          ip_range: 172.20.0.0/24
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.default_bridge: "false"
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+      com.docker.network.bridge.name: "dockerfile-generator"
+      com.docker.network.driver.mtu: "1500"
+    labels:
+      com.dockerfile-generator.network.description: "is an isolated bridge network."
